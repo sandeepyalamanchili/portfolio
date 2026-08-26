@@ -1,0 +1,40 @@
+.rail {
+  position: fixed;
+  right: clamp(16px, 3vw, 32px);
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 30;
+  display: none;
+  flex-direction: column;
+  gap: 22px;
+  align-items: center;
+}
+
+.rail::before {
+  content: '';
+  position: absolute;
+  inset: -40px 0 -40px;
+  width: 1px;
+  background: var(--hairline);
+  left: 50%;
+}
+
+.rail a {
+  position: relative;
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-faint);
+  transition:
+    color 0.4s var(--ease-out),
+    opacity 0.4s var(--ease-out);
+}
+
+.rail a.is-active {
+  color: var(--ink);
+}
+
+@media (min-width: 700px) {
+  .rail {
+    display: flex;
+  }
+}
