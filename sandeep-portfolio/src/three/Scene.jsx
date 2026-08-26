@@ -3,17 +3,31 @@ import { Canvas, useFrame } from '@react-three/fiber';
 import { EffectComposer, Bloom } from '@react-three/postprocessing';
 import * as THREE from 'three';
 import ParticleField from './ParticleField';
+import {
+  DIGIT_COUNT,
+  makeDigitAtlasTexture,
+  digitVertexShader,
+  digitFragmentShader,
+} from './digitAtlas';
 
 const STAR_COUNT = 900;
 
 function BackgroundStars() {
   const ref = useRef();
+  const atlas = useMemo(() => makeDigitAtlasTexture(), []);
   const positions = useMemo(() => {
     const arr = new Float32Array(STAR_COUNT * 3);
     for (let i = 0; i < STAR_COUNT; i++) {
       arr[i * 3] = (Math.random() - 0.5) * 26;
       arr[i * 3 + 1] = (Math.random() - 0.5) * 16;
       arr[i * 3 + 2] = (Math.random() - 0.5) * 14 - 4;
+    }
+    return arr;
+  }, []);
+  const digits = useMemo(() => {
+    const arr = new Float32Array(STAR_COUNT);
+    for (let i = 0; i < STAR_COUNT; i++) {
+      arr[i] = Math.floor(Math.random() * DIGIT_COUNT);
     }
     return arr;
   }, []);
@@ -33,14 +47,26 @@ function BackgroundStars() {
           array={positions}
           itemSize={3}
         />
+        <bufferAttribute
+          attach="attributes-aDigit"
+          count={STAR_COUNT}
+          array={digits}
+          itemSize={1}
+        />
       </bufferGeometry>
-      <pointsMaterial
-        size={0.018}
-        sizeAttenuation
+      <shaderMaterial
         transparent
-        opacity={0.55}
-        color="#ffffff"
         depthWrite={false}
+        blending={THREE.AdditiveBlending}
+        uniforms={{
+          uMap: { value: atlas },
+          uSize: { value: 0.026 },
+          uOpacity: { value: 0.55 },
+          uCols: { value: 5 },
+          uRows: { value: 2 },
+        }}
+        vertexShader={digitVertexShader}
+        fragmentShader={digitFragmentShader}
       />
     </points>
   );

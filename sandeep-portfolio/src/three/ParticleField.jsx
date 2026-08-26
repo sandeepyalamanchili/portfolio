@@ -4,6 +4,14 @@ import { gsap } from 'gsap';
 import * as THREE from 'three';
 import { SHAPES, scatterField } from './shapes';
 import { useSectionScroll } from '../hooks/useSectionScroll';
+import {
+  DIGIT_COLS,
+  DIGIT_ROWS,
+  DIGIT_COUNT,
+  makeDigitAtlasTexture,
+  digitVertexShader,
+  digitFragmentShader,
+} from './digitAtlas';
 
 export const POINT_COUNT = 10000;
 
@@ -20,31 +28,6 @@ function easeInOutQuad(x) {
   return x < 0.5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2) / 2;
 }
 
-function makeSpriteTexture() {
-  const size = 128;
-  const canvas = document.createElement('canvas');
-  canvas.width = size;
-  canvas.height = size;
-  const ctx = canvas.getContext('2d');
-  const gradient = ctx.createRadialGradient(
-    size / 2,
-    size / 2,
-    0,
-    size / 2,
-    size / 2,
-    size / 2
-  );
-  gradient.addColorStop(0, 'rgba(255,255,255,1)');
-  gradient.addColorStop(0.25, 'rgba(255,255,255,0.9)');
-  gradient.addColorStop(0.55, 'rgba(255,255,255,0.28)');
-  gradient.addColorStop(1, 'rgba(255,255,255,0)');
-  ctx.fillStyle = gradient;
-  ctx.fillRect(0, 0, size, size);
-  const texture = new THREE.CanvasTexture(canvas);
-  texture.needsUpdate = true;
-  return texture;
-}
-
 function lerpArrays(a, b, t, out) {
   for (let i = 0; i < a.length; i++) {
     out[i] = a[i] + (b[i] - a[i]) * t;
@@ -57,7 +40,16 @@ export default function ParticleField({ reducedMotion = false }) {
   const groupRef = useRef();
   const pointsRef = useRef();
   const materialRef = useRef();
-  const sprite = useMemo(() => makeSpriteTexture(), []);
+  const atlas = useMemo(() => makeDigitAtlasTexture(), []);
+
+  // one random digit (0-9) per particle, stable for the component's life
+  const digits = useMemo(() => {
+    const arr = new Float32Array(POINT_COUNT);
+    for (let i = 0; i < POINT_COUNT; i++) {
+      arr[i] = Math.floor(Math.random() * DIGIT_COUNT);
+    }
+    return arr;
+  }, []);
 
   // Precompute every base shape + a couple of scatter fields once.
   const shapes = useMemo(() => {
@@ -116,15 +108,16 @@ export default function ParticleField({ reducedMotion = false }) {
       // shape statically, dip to transparent, swap, fade back in
       s.lastIndex = activeIndex;
       const mat = materialRef.current;
-      if (mat) {
-        gsap.killTweensOf(mat);
-        gsap.to(mat, {
-          opacity: 0,
+      const uOpacity = mat?.uniforms?.uOpacity;
+      if (uOpacity) {
+        gsap.killTweensOf(uOpacity);
+        gsap.to(uOpacity, {
+          value: 0,
           duration: 0.35,
           ease: 'power1.out',
           onComplete: () => {
             s.display.set(target);
-            gsap.to(mat, { opacity: 0.9, duration: 0.35, ease: 'power1.in' });
+            gsap.to(uOpacity, { value: 0.9, duration: 0.35, ease: 'power1.in' });
           },
         });
       } else {
@@ -187,17 +180,27 @@ export default function ParticleField({ reducedMotion = false }) {
             array={positions}
             itemSize={3}
           />
+          <bufferAttribute
+            attach="attributes-aDigit"
+            count={POINT_COUNT}
+            array={digits}
+            itemSize={1}
+          />
         </bufferGeometry>
-        <pointsMaterial
+        <shaderMaterial
           ref={materialRef}
-          map={sprite}
-          size={0.052}
-          sizeAttenuation
           transparent
-          opacity={0.9}
           depthWrite={false}
           blending={THREE.AdditiveBlending}
-          color="#ffffff"
+          uniforms={{
+            uMap: { value: atlas },
+            uSize: { value: 0.052 },
+            uOpacity: { value: 0.9 },
+            uCols: { value: DIGIT_COLS },
+            uRows: { value: DIGIT_ROWS },
+          }}
+          vertexShader={digitVertexShader}
+          fragmentShader={digitFragmentShader}
         />
       </points>
     </group>

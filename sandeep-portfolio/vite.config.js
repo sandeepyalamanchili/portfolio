@@ -5,7 +5,8 @@ import { defineConfig } from 'vite'
 export default defineConfig({
   plugins: [react()],
   // GitHub Pages serves this repo from /portfolio/, not the domain root.
-  // Vercel/Netlify serve from the root — if you deploy there instead,
-  // comment this line back out (or delete it).
-  base: '/portfolio/',
+  // Vercel/Netlify serve from the root, so this stays commented out while
+  // deployed there. Uncomment (and set to your repo name) only if you
+  // switch to GitHub Pages instead.
+  // base: '/portfolio/',
 })
