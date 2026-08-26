@@ -1,19 +1,21 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Scene from '../three/Scene';
 import { useReveal } from '../hooks/useReveal';
+import { useDominantColor } from '../hooks/useDominantColor';
+import { asset } from '../lib/asset';
 import './PersonalBlog.css';
 
 const PHOTOS = [
-  { src: '/journal/journal-1.jpg', caption: 'Coffee break, mid-project' },
-  { src: '/journal/journal-2.jpg', caption: 'Late evening, still thinking about the data' },
-  { src: '/journal/journal-3.jpg', caption: 'Campus, between classes' },
-  { src: '/journal/journal-4.jpg', caption: 'Same afternoon, different frame' },
-  { src: '/journal/journal-5.jpg', caption: 'Outside, taking a breather' },
-  { src: '/journal/journal-6.jpg', caption: 'A quieter moment' },
-  { src: '/journal/journal-7.jpg', caption: 'A campus event, robe and all' },
+  { src: asset('/journal/journal-1.jpg'), caption: 'Coffee break, mid-project' },
+  { src: asset('/journal/journal-2.jpg'), caption: 'Late evening, still thinking about the data' },
+  { src: asset('/journal/journal-3.jpg'), caption: 'Campus, between classes' },
+  { src: asset('/journal/journal-4.jpg'), caption: 'Same afternoon, different frame' },
+  { src: asset('/journal/journal-5.jpg'), caption: 'Outside, taking a breather' },
+  { src: asset('/journal/journal-6.jpg'), caption: 'A quieter moment' },
+  { src: asset('/journal/journal-7.jpg'), caption: 'A campus event, robe and all' },
 ];
 
-const AUTO_ADVANCE_MS = 4200;
+const AUTO_ADVANCE_MS = 4800;
 const VISIBLE_RANGE = 2; // how many cards show on each side of center
 const DRAG_THRESHOLD_PX = 60; // how far you need to drag before it counts as a swipe
 
@@ -24,24 +26,79 @@ function shortestOffset(from, to, length) {
   return diff;
 }
 
+function Lightbox({ photo, index, onClose, onPrev, onNext }) {
+  useEffect(() => {
+    function onKey(e) {
+      if (e.key === 'Escape') onClose();
+      if (e.key === 'ArrowLeft') onPrev();
+      if (e.key === 'ArrowRight') onNext();
+    }
+    window.addEventListener('keydown', onKey);
+    document.body.style.overflow = 'hidden';
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      document.body.style.overflow = '';
+    };
+  }, [onClose, onPrev, onNext]);
+
+  return (
+    <div className="lightbox" onClick={onClose}>
+      <button className="lightbox__close" onClick={onClose} aria-label="Close">
+        ×
+      </button>
+      <button
+        className="lightbox__arrow lightbox__arrow--prev"
+        onClick={(e) => {
+          e.stopPropagation();
+          onPrev();
+        }}
+        aria-label="Previous photo"
+      >
+        ‹
+      </button>
+      <figure className="lightbox__figure" onClick={(e) => e.stopPropagation()}>
+        <img src={photo.src} alt={photo.caption} />
+        <figcaption>
+          <span className="lightbox__index">
+            {String(index + 1).padStart(2, '0')} / {String(PHOTOS.length).padStart(2, '0')}
+          </span>
+          <span className="lightbox__caption">{photo.caption}</span>
+        </figcaption>
+      </figure>
+      <button
+        className="lightbox__arrow lightbox__arrow--next"
+        onClick={(e) => {
+          e.stopPropagation();
+          onNext();
+        }}
+        aria-label="Next photo"
+      >
+        ›
+      </button>
+    </div>
+  );
+}
+
 function Carousel() {
   const [index, setIndex] = useState(0);
   const [paused, setPaused] = useState(false);
   const [progress, setProgress] = useState(0);
   const [drag, setDrag] = useState({ active: false, dx: 0 });
+  const [lightboxOpen, setLightboxOpen] = useState(false);
   const dragStartX = useRef(0);
+  const dragMoved = useRef(false);
   const stageRef = useRef(null);
+
+  const activeColor = useDominantColor(PHOTOS[index].src);
 
   const goTo = useCallback((i) => {
     setIndex(((i % PHOTOS.length) + PHOTOS.length) % PHOTOS.length);
     setProgress(0);
   }, []);
 
-  // auto-advance driven by rAF (not setInterval) so the progress bar can
-  // track the same clock and stay perfectly in sync with the actual advance
   useEffect(() => {
     const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (paused || reduceMotion || drag.active) return undefined;
+    if (paused || reduceMotion || drag.active || lightboxOpen) return undefined;
 
     let raf;
     let start = performance.now();
@@ -59,17 +116,17 @@ function Carousel() {
 
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [paused, drag.active, index]);
+  }, [paused, drag.active, lightboxOpen, index]);
 
-  // keyboard navigation when the carousel has focus
   function onKeyDown(e) {
     if (e.key === 'ArrowLeft') goTo(index - 1);
     if (e.key === 'ArrowRight') goTo(index + 1);
+    if (e.key === 'Enter' || e.key === ' ') setLightboxOpen(true);
   }
 
-  // pointer-drag / swipe support (mouse + touch, unified via Pointer Events)
   function onPointerDown(e) {
     dragStartX.current = e.clientX;
+    dragMoved.current = false;
     setDrag({ active: true, dx: 0 });
     setPaused(true);
     e.currentTarget.setPointerCapture(e.pointerId);
@@ -77,7 +134,9 @@ function Carousel() {
 
   function onPointerMove(e) {
     if (!drag.active) return;
-    setDrag({ active: true, dx: e.clientX - dragStartX.current });
+    const dx = e.clientX - dragStartX.current;
+    if (Math.abs(dx) > 4) dragMoved.current = true;
+    setDrag({ active: true, dx });
   }
 
   function onPointerUp() {
@@ -99,8 +158,18 @@ function Carousel() {
       tabIndex={0}
       role="region"
       aria-label="Personal photo carousel"
+      style={{ '--glow-color': activeColor || '45, 212, 191' }}
     >
-      <p className="carousel__eyebrow">Selected moments</p>
+      <div className="carousel__glow" aria-hidden="true" />
+
+      <div className="carousel__heading">
+        <p className="carousel__eyebrow">Selected moments</p>
+        <span className="carousel__count">
+          {String(index + 1).padStart(2, '0')}
+          <span className="carousel__count-sep"> / </span>
+          {String(PHOTOS.length).padStart(2, '0')}
+        </span>
+      </div>
 
       <div
         className="carousel__stage"
@@ -133,9 +202,14 @@ function Carousel() {
                   ? 'none'
                   : 'transform 0.85s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.85s cubic-bezier(0.22, 1, 0.36, 1), border-color 0.4s ease',
               }}
-              onClick={() => !isActive && !drag.active && goTo(i)}
+              onClick={() => {
+                if (dragMoved.current) return;
+                if (isActive) setLightboxOpen(true);
+                else goTo(i);
+              }}
             >
               <span className="carousel__badge">{String(i + 1).padStart(2, '0')}</span>
+              {isActive && <span className="carousel__expand">Expand ⤢</span>}
               <div className="carousel__frame">
                 <img
                   src={photo.src}
@@ -145,9 +219,6 @@ function Carousel() {
                   className={isActive ? 'is-kenburns' : ''}
                 />
               </div>
-              <figcaption>
-                <span>{photo.caption}</span>
-              </figcaption>
               {isActive && (
                 <div className="carousel__progress">
                   <div
@@ -160,6 +231,10 @@ function Carousel() {
           );
         })}
       </div>
+
+      <p className="carousel__active-caption" key={index}>
+        {PHOTOS[index].caption}
+      </p>
 
       <div className="carousel__controls">
         <button
@@ -187,6 +262,16 @@ function Carousel() {
           ›
         </button>
       </div>
+
+      {lightboxOpen && (
+        <Lightbox
+          photo={PHOTOS[index]}
+          index={index}
+          onClose={() => setLightboxOpen(false)}
+          onPrev={() => goTo(index - 1)}
+          onNext={() => goTo(index + 1)}
+        />
+      )}
     </div>
   );
 }
@@ -226,8 +311,8 @@ export default function PersonalBlog() {
             </h1>
             <p className="section__sub">
               A few unposed moments between projects, campus, coffee, and the
-              occasional afternoon outside. Drag, click a side card, or use
-              the arrow keys.
+              occasional afternoon outside. Drag it, click a photo to expand
+              it, or use the arrow keys.
             </p>
           </div>
         </div>

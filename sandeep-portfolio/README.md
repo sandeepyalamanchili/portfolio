@@ -19,6 +19,36 @@ npm run preview   # serve the production build locally
 
 ## What's new in this pass
 
+- **Fixed a real deployment bug** I'd have shipped otherwise: the headshot,
+  résumé link, and all 7 journal photos were hardcoded as `/headshot.jpg`
+  style absolute paths. That works locally and on Vercel, but breaks under
+  GitHub Pages' subpath (`/portfolio/`) — those images would have 404'd on
+  the live site. Added `src/lib/asset.js`, a small helper that prefixes
+  every public-folder reference with Vite's actual base path at runtime, and
+  applied it everywhere an image or the résumé link is referenced. Verified
+  this by inspecting the compiled JS bundle directly, not just the source.
+- Set `base: '/portfolio/'` in `vite.config.js` to match your actual repo
+  name (`sandeepyalamanchili/portfolio`) — comment this line back out if you
+  deploy to Vercel/Netlify instead of GitHub Pages, since they serve from
+  the domain root.
+- **The Personal Blog page is substantially reworked**, not just tweaked:
+  - The background behind the carousel now tints itself to match the
+    dominant color of whichever photo is active, sampled from the image
+    itself via a canvas and cached per-photo, and cross-fades smoothly as
+    you move between photos. This is the same trick Spotify/Apple Music use
+    for now-playing screens.
+  - **Click the active photo to open a full lightbox** — dims the whole
+    page, shows the photo at full size, with its own prev/next arrows and
+    Escape-to-close.
+  - The carousel itself is bigger and better proportioned, with a large
+    italic editorial-style caption beneath it instead of a small caption
+    crammed inside the card.
+  - A "01 / 07" counter next to the section label so you always know where
+    you are.
+  - All previous functionality carried over: drag-to-swipe, auto-advance
+    with a synced progress bar, arrow-key navigation, the Ken Burns zoom on
+    the active photo.
+
 - **The carousel is now genuinely interactive, not just auto-playing.**
   Drag it with your mouse or finger and it follows your cursor in real
   time; release past a threshold and it snaps to the next/previous photo.
@@ -146,3 +176,38 @@ before this goes live, the same as the rest.
 - **Accent color** — added a single teal accent (`--accent` in
   `src/styles/globals.css`) since a personal portfolio can carry a bit more
   color than a studio brand; change the hex there if it's not your taste.
+
+## Publishing it live
+
+This is a standard Vite + React app, so it deploys to any static host —
+Vercel, Netlify, GitHub Pages, Cloudflare Pages. It does **not** work as a
+Framer site: Framer is a visual builder for pages made in their own editor,
+with custom React "Code Components" dropped in as individual pieces — it
+can't take over an entire independent app like this one (custom WebGL
+canvas, scroll-driven animation, hash routing, dozens of interlinked files)
+without a full rebuild inside Framer's component model.
+
+### Vercel (recommended — you've already used this for other projects)
+
+1. Push this folder to a GitHub repo.
+2. On [vercel.com](https://vercel.com), **Add New → Project**, pick the repo.
+3. Leave the defaults (Vite is auto-detected: build command `npm run build`,
+   output directory `dist`) and click **Deploy**.
+4. Every future `git push` redeploys automatically.
+
+### GitHub Pages (also free — matches your Google Reviews Dashboard setup)
+
+1. In `vite.config.js`, uncomment the `base` line and set it to your repo
+   name, e.g. `base: '/portfolio/'`.
+2. Run:
+   ```bash
+   npm run deploy
+   ```
+   (this builds the site and pushes `dist/` to a `gh-pages` branch via the
+   `gh-pages` package, already added as a dev dependency)
+3. In the GitHub repo's Settings → Pages, set the source to the `gh-pages`
+   branch. Your site will be live at
+   `https://sandeepyalamanchili.github.io/portfolio/` within a few minutes.
+
+Either way, once it's live, update the `og:url`/JSON-LD `url` field in
+`index.html` to the real published URL for correct link previews.

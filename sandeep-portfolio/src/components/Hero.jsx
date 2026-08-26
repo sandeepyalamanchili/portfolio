@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { gsap } from 'gsap';
 import { useReveal } from '../hooks/useReveal';
 import { useMagnetic } from '../hooks/useMagnetic';
+import { asset } from '../lib/asset';
 import './Hero.css';
 
 const STATS = [
@@ -46,7 +47,7 @@ export default function Hero() {
     <section id="hero" className="hero" ref={ref}>
       <div className="shell hero__inner">
         <img
-          src="/headshot.jpg"
+          src={asset('/headshot.jpg')}
           alt="Portrait of Sandeep Yalamanchili"
           className="avatar reveal"
         />
@@ -70,7 +71,7 @@ export default function Hero() {
             <span className="btn__dot" />
           </a>
           <a
-            href="/resume/Sandeep_Yalamanchili_Resume.pdf"
+            href={asset('/resume/Sandeep_Yalamanchili_Resume.pdf')}
             className="btn btn--outline"
             download="Sandeep_Yalamanchili_Resume.pdf"
             ref={outlineBtnRef}

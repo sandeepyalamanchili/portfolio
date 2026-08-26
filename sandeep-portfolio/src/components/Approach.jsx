@@ -1,5 +1,6 @@
 import { useRef } from 'react';
 import { useReveal } from '../hooks/useReveal';
+import { asset } from '../lib/asset';
 import './Approach.css';
 
 const CARDS = [
@@ -35,7 +36,7 @@ export default function Approach() {
         <div className="approach__head">
           <div className="approach__panel panel">
             <img
-              src="/headshot.jpg"
+              src={asset('/headshot.jpg')}
               alt="Sandeep Yalamanchili"
               className="approach__signature reveal"
             />
