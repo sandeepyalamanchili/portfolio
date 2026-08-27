@@ -6,7 +6,7 @@ import { asset } from '../lib/asset';
 import './Hero.css';
 
 const STATS = [
-  { value: 2026, label: 'Graduating' },
+  { value: 2026, label: 'Graduated' },
   { value: 6, label: 'Projects shipped' },
   { value: 5, label: 'Certifications' },
   { value: 4, label: 'Core data tools' },
@@ -35,7 +35,7 @@ export default function Hero() {
       ease: 'power2.out',
       onUpdate: () => {
         proxies.forEach((p, i) => {
-          if (targets[i]) targets[i].textContent = Math.round(p.val).toLocaleString();
+          if (targets[i]) targets[i].textContent = Math.round(p.val);
         });
       },
     });
@@ -86,7 +86,7 @@ export default function Hero() {
             <div key={stat.label}>
               <strong ref={(el) => (statRefs.current[i] = el)}>
                 {window.matchMedia('(prefers-reduced-motion: reduce)').matches
-                  ? stat.value.toLocaleString()
+                  ? stat.value
                   : 0}
               </strong>
               <span>{stat.label}</span>
